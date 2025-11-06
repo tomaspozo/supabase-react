@@ -1,9 +1,9 @@
 import { CurrentUserAvatar } from '@/components/auth/current-user-avatar'
 import { OtpAuth } from '@/components/auth/otp-auth'
-import { Dropzone } from '@/components/storage/dropzone'
 import { Chat } from '@/components/realtime/chat'
 import { useSupabase } from '@/hooks/use-supabase'
 import { Sparkles, Upload, MessageSquare, Shield } from 'lucide-react'
+import { FileUploadDemo } from './showcase/file-upload'
 
 export function Hero() {
   const { user } = useSupabase()
@@ -69,7 +69,7 @@ export function Hero() {
               <Upload className="h-6 w-6 text-primary" />
               <h3 className="text-2xl font-semibold">File Upload</h3>
             </div>
-            <Dropzone />
+            <FileUploadDemo />
           </div>
 
           {/* Realtime Chat */}
@@ -85,4 +85,3 @@ export function Hero() {
     </div>
   )
 }
-
