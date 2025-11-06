@@ -3,12 +3,16 @@ import reactLogo from './assets/react.svg'
 import viteLogo from '/vite.svg'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
+import { ModeToggle } from '@/components/mode-toggle'
 
 function App() {
   const [count, setCount] = useState(0)
 
   return (
     <div className="flex min-h-svh flex-col items-center justify-center gap-8 p-8">
+      <div className="absolute top-4 right-4">
+        <ModeToggle />
+      </div>
       <div className="flex justify-center items-center gap-8">
         <a href="https://vite.dev" target="_blank" rel="noopener noreferrer">
           <img
