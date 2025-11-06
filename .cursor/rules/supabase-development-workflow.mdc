@@ -1,0 +1,405 @@
+---
+description: Iterative development workflow for database changes using Supabase MCP
+alwaysApply: false
+---
+# Database: Development Workflow
+
+You are a Postgres Expert who understands the iterative development workflow for Supabase projects.
+
+## Overview
+
+This project uses an **iterative development workflow** for database changes. The key principle is:
+
+> **Experiment freely in development, but consolidate changes into clean migrations before committing.**
+
+## Core Workflow Principles
+
+1. **Development happens in dev environment** - Either local Supabase (via `supabase start`) or a cloud development project
+2. **Use Supabase MCP for direct changes** - Apply changes directly to the database during development
+3. **Generate migration files but DON'T apply them** - Keep uncommitted migrations as "scratch/tracking" files
+4. **Iterate and experiment freely** - Make changes, test, refine, repeat
+5. **Consolidate into ONE migration per feature** - All related changes should be in a single migration file
+6. **Apply migrations only at commit time** - Review, test, then commit and apply
+
+## Step-by-Step Development Process
+
+### Phase 1: Initial Development
+
+1. **Start your dev environment:**
+   ```bash
+   supabase start  # For local development
+   ```
+
+2. **Make your first change directly via MCP:**
+   - Use Supabase MCP tools to create tables, add columns, create functions, etc.
+   - Example: Create a `contacts` table with basic structure
+
+3. **Generate migration file (DO NOT APPLY):**
+   ```bash
+   supabase db diff -f create_contacts_feature
+   ```
+   - This creates a migration file like `20240101120000_create_contacts_feature.sql`
+   - **Important**: Do NOT run `supabase migration up` or apply the migration yet
+   - The file is now your "scratch pad" for tracking changes
+
+### Phase 2: Iterative Refinement
+
+4. **Make additional changes directly via MCP:**
+   - Add more columns, modify RLS policies, create functions, etc.
+   - Example: Add `email` and `phone` columns to `contacts`
+
+5. **Update the existing migration file:**
+   - Option A: Manually edit the migration file to include new changes
+   - Option B: Generate a new migration and consolidate later
+   - Example: Add the new columns to the existing migration file
+
+6. **Repeat steps 4-5 as needed:**
+   - Discover issues with RLS? Fix directly via MCP, update migration file
+   - Need a trigger function? Create via MCP, add to migration file
+   - All changes accumulate in your feature's migration file
+
+### Phase 3: Consolidation and Testing
+
+7. **Review and consolidate:**
+   - Ensure all related changes are in ONE migration file
+   - Remove any redundant or intermediate changes
+   - Organize the migration logically (tables → functions → triggers → policies)
+
+8. **Test locally:**
+   ```bash
+   # Reset local database to clean state
+   supabase db reset
+   
+   # This applies all migrations from scratch, verifying your migration works
+   ```
+
+9. **Verify the migration file:**
+   - Check that the migration file is clean and well-organized
+   - Ensure all comments explain the purpose
+   - Verify RLS policies are included if needed
+
+### Phase 4: Commit and Apply
+
+10. **Commit the migration:**
+    ```bash
+    git add supabase/migrations/YYYYMMDDHHMMSS_create_contacts_feature.sql
+    git commit -m "feat: add contacts management feature"
+    ```
+
+11. **Apply migrations:**
+    - For local: Migrations are automatically applied on `supabase db reset`
+    - For cloud dev: Run `supabase db push` to apply pending migrations
+    - For production: Migrations are applied via CI/CD or manual deployment
+
+## Example: Contacts Feature Development
+
+### Iteration 1: Basic Table Structure
+
+**Action via MCP:**
+- Create `contacts` table with `id`, `name`, `created_at`
+
+**Migration file (not applied):**
+```sql
+-- Migration: create_contacts_feature
+-- Purpose: Initial contacts table structure
+
+create table if not exists public.contacts (
+  id uuid default gen_random_uuid() primary key,
+  name text not null,
+  created_at timestamp with time zone default now()
+);
+
+-- Enable RLS
+alter table public.contacts enable row level security;
+
+-- Basic RLS policy
+create policy "Users can view own contacts"
+  on public.contacts
+  for select
+  to authenticated
+  using (auth.uid() = user_id);
+```
+
+### Iteration 2: Add More Columns
+
+**Action via MCP:**
+- Add `email` and `phone` columns to `contacts`
+
+**Update migration file:**
+```sql
+-- Migration: create_contacts_feature
+-- Purpose: Contacts management with full contact details
+
+create table if not exists public.contacts (
+  id uuid default gen_random_uuid() primary key,
+  name text not null,
+  email text,
+  phone text,
+  created_at timestamp with time zone default now()
+);
+
+-- ... rest of migration
+```
+
+### Iteration 3: Fix RLS Issues
+
+**Action via MCP:**
+- Discover `user_id` column doesn't exist, fix RLS policies
+- Add `user_id` column and update policies
+
+**Update migration file:**
+```sql
+-- Migration: create_contacts_feature
+-- Purpose: Contacts management with proper RLS
+
+create table if not exists public.contacts (
+  id uuid default gen_random_uuid() primary key,
+  user_id uuid references auth.users(id) on delete cascade not null,
+  name text not null,
+  email text,
+  phone text,
+  created_at timestamp with time zone default now()
+);
+
+-- Enable RLS
+alter table public.contacts enable row level security;
+
+-- RLS policies
+create policy "Users can view own contacts"
+  on public.contacts
+  for select
+  to authenticated
+  using (auth.uid() = user_id);
+
+create policy "Users can insert own contacts"
+  on public.contacts
+  for insert
+  to authenticated
+  with check (auth.uid() = user_id);
+
+create policy "Users can update own contacts"
+  on public.contacts
+  for update
+  to authenticated
+  using (auth.uid() = user_id)
+  with check (auth.uid() = user_id);
+
+create policy "Users can delete own contacts"
+  on public.contacts
+  for delete
+  to authenticated
+  using (auth.uid() = user_id);
+```
+
+### Iteration 4: Add Trigger Function
+
+**Action via MCP:**
+- Create trigger function for `updated_at` timestamp
+- Attach trigger to `contacts` table
+
+**Final migration file:**
+```sql
+-- Migration: create_contacts_feature
+-- Purpose: Complete contacts management with timestamps and RLS
+
+-- Create contacts table
+create table if not exists public.contacts (
+  id uuid default gen_random_uuid() primary key,
+  user_id uuid references auth.users(id) on delete cascade not null,
+  name text not null,
+  email text,
+  phone text,
+  created_at timestamp with time zone default now(),
+  updated_at timestamp with time zone default now()
+);
+
+-- Enable RLS
+alter table public.contacts enable row level security;
+
+-- RLS policies
+create policy "Users can view own contacts"
+  on public.contacts
+  for select
+  to authenticated
+  using ((select auth.uid()) = user_id);
+
+create policy "Users can insert own contacts"
+  on public.contacts
+  for insert
+  to authenticated
+  with check ((select auth.uid()) = user_id);
+
+create policy "Users can update own contacts"
+  on public.contacts
+  for update
+  to authenticated
+  using ((select auth.uid()) = user_id)
+  with check ((select auth.uid()) = user_id);
+
+create policy "Users can delete own contacts"
+  on public.contacts
+  for delete
+  to authenticated
+  using ((select auth.uid()) = user_id);
+
+-- Trigger function for updated_at
+create or replace function public.handle_updated_at()
+returns trigger
+language plpgsql
+security invoker
+set search_path = ''
+as $$
+begin
+  new.updated_at = now();
+  return new;
+end;
+$$;
+
+-- Attach trigger
+create trigger update_contacts_updated_at
+  before update on public.contacts
+  for each row
+  execute function public.handle_updated_at();
+```
+
+**Result**: ONE clean, comprehensive migration file ready for commit!
+
+## Migration Consolidation Strategies
+
+### Strategy 1: Manual Editing (Recommended)
+- Directly edit the migration file as you make changes
+- Keep all related changes in one place
+- Best for: Small to medium features
+
+### Strategy 2: Generate and Consolidate
+- Generate new migration files for each iteration
+- Before committing, manually merge all migrations into one
+- Best for: Large features with many iterations
+
+### Strategy 3: Feature Branch Pattern
+- Create a feature branch
+- Keep multiple migration files during development
+- Squash into one migration before merging to main
+- Best for: Team collaboration on large features
+
+## Best Practices
+
+### DO
+
+✅ **Make changes directly via MCP during development**
+- Faster iteration cycle
+- Immediate feedback
+- Easy to experiment
+
+✅ **Generate migration files regularly**
+- Track your changes as you go
+- Don't lose work if you need to reset
+
+✅ **Consolidate before committing**
+- One migration per feature
+- Clean git history
+- Easier code review
+
+✅ **Test with `supabase db reset`**
+- Verify migration works from scratch
+- Catch issues before committing
+
+✅ **Use descriptive migration names**
+- `create_contacts_feature.sql`
+- `add_user_profile_fields.sql`
+- `implement_realtime_notifications.sql`
+
+### DON'T
+
+❌ **Don't apply migrations during development**
+- Wait until you're ready to commit
+- Keep migration files as "scratch space"
+
+❌ **Don't commit multiple migrations for one feature**
+- Consolidate all changes into one file
+- Exception: Very large features that span multiple PRs
+
+❌ **Don't skip testing**
+- Always test with `supabase db reset` before committing
+- Verify migration can be applied cleanly
+
+❌ **Don't mix features in one migration**
+- One feature = one migration
+- Keep changes logically grouped
+
+## Commands Reference
+
+### Development Commands
+
+```bash
+# Start local Supabase
+supabase start
+
+# Generate migration from current DB state
+supabase db diff -f migration_name
+
+# Reset local DB (applies all migrations from scratch)
+supabase db reset
+
+# View migration status
+supabase migration list
+```
+
+### MCP Tools Usage
+
+When using Supabase MCP tools:
+- `mcp_supabase_execute_sql` - Execute SQL directly (for development)
+- `mcp_supabase_apply_migration` - Apply migrations (only when ready)
+- `mcp_supabase_list_tables` - Check current schema state
+- `mcp_supabase_get_logs` - Debug issues
+
+## Common Scenarios
+
+### Scenario 1: Starting a New Feature
+
+1. Create feature branch: `git checkout -b feature/contacts-management`
+2. Start local Supabase: `supabase start`
+3. Make initial changes via MCP
+4. Generate initial migration: `supabase db diff -f create_contacts_feature`
+5. Continue iterating...
+
+### Scenario 2: Discovering Issues
+
+If you discover issues during development:
+1. Fix directly via MCP
+2. Update the migration file
+3. Test with `supabase db reset`
+4. Continue iterating
+
+### Scenario 3: Multiple Related Features
+
+If working on multiple related features:
+- Create separate migration files initially
+- Consider consolidating if they're tightly coupled
+- Or keep separate if they're logically distinct
+
+### Scenario 4: Rolling Back Changes
+
+If you need to discard changes:
+1. Simply delete the uncommitted migration file
+2. Reset your dev database: `supabase db reset`
+3. Start fresh
+
+## Integration with Other Rules
+
+This workflow integrates with:
+- **supabase-create-migrations.mdc** - For migration file structure and SQL guidelines
+- **supabase-create-rls-policies.mdc** - For RLS policy patterns
+- **supabase-db-functions.mdc** - For database function patterns
+- **supabase-postgres-style-guidelines.mdc** - For SQL style conventions
+
+## Summary
+
+Remember: **Experiment freely, consolidate cleanly, commit confidently.**
+
+The workflow enables:
+- ✅ Fast iteration cycles
+- ✅ Clean migration history
+- ✅ Easy rollback during development
+- ✅ Comprehensive feature migrations
+- ✅ Production-ready changes

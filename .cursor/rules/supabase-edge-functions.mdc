@@ -24,6 +24,10 @@ You're an expert in writing TypeScript and Deno JavaScript runtime. Generate **h
 10. A single Edge Function can handle multiple routes. It is recommended to use a library like Express or Hono to handle the routes as it's easier for developer to understand and maintain. Each route must be prefixed with `/function-name` so they are routed correctly.
 11. File write operations are ONLY permitted on `/tmp` directory. You can use either Deno or Node File APIs.
 12. Use `EdgeRuntime.waitUntil(promise)` static method to run long-running tasks in the background without blocking response to a request. Do NOT assume it is available in the request / execution context.
+13. **Always handle CORS** when invoking functions from the browser. Use a shared `cors.ts` file in `supabase/functions/_shared` for consistency.
+14. **Implement proper error handling** using Supabase error types (`FunctionsHttpError`, `FunctionsRelayError`, `FunctionsFetchError`) for better error messages.
+15. **Test functions locally** using `supabase functions serve` before deploying.
+16. **Handle OPTIONS requests** for CORS preflight when functions are called from browsers.
 
 ## Example Templates
 
@@ -111,3 +115,276 @@ Deno.serve(async (req: Request) => {
 });
 
 ```
+
+## CORS Handling
+
+When invoking Edge Functions from the browser, you **must** handle CORS (Cross-Origin Resource Sharing) requests.
+
+### Shared CORS Headers
+
+Create a shared `cors.ts` file in `supabase/functions/_shared`:
+
+```typescript
+// supabase/functions/_shared/cors.ts
+export const corsHeaders = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Headers':
+    'authorization, x-client-info, apikey, content-type',
+};
+```
+
+### Function with CORS Handling
+
+```typescript
+import { corsHeaders } from '../_shared/cors.ts';
+
+Deno.serve(async (req: Request) => {
+  // Handle CORS preflight requests
+  if (req.method === 'OPTIONS') {
+    return new Response('ok', { headers: corsHeaders });
+  }
+
+  try {
+    const { name } = await req.json();
+
+    const data = {
+      message: `Hello ${name}!`,
+    };
+
+    return new Response(JSON.stringify(data), {
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      status: 200,
+    });
+  } catch (error) {
+    return new Response(JSON.stringify({ error: error.message }), {
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      status: 400,
+    });
+  }
+});
+```
+
+## Error Handling
+
+Supabase provides specific error types for better error handling:
+
+```typescript
+import {
+  FunctionsHttpError,
+  FunctionsRelayError,
+  FunctionsFetchError,
+} from 'npm:@supabase/supabase-js@2';
+
+const { data, error } = await supabase.functions.invoke('my-function', {
+  headers: { 'Content-Type': 'application/json' },
+  body: { foo: 'bar' },
+});
+
+if (error) {
+  if (error instanceof FunctionsHttpError) {
+    // Function returned an error response
+    const errorMessage = await error.context.json();
+    console.log('Function error:', errorMessage);
+  } else if (error instanceof FunctionsRelayError) {
+    // Relay error (network/connection issues)
+    console.log('Relay error:', error.message);
+  } else if (error instanceof FunctionsFetchError) {
+    // Fetch error (request failed)
+    console.log('Fetch error:', error.message);
+  }
+}
+```
+
+### Function-Side Error Handling
+
+```typescript
+import { corsHeaders } from '../_shared/cors.ts';
+
+Deno.serve(async (req: Request) => {
+  if (req.method === 'OPTIONS') {
+    return new Response('ok', { headers: corsHeaders });
+  }
+
+  try {
+    const { input } = await req.json();
+
+    // Validate input
+    if (!input) {
+      return new Response(
+        JSON.stringify({ error: 'Input is required' }),
+        {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          status: 400,
+        }
+      );
+    }
+
+    // Process request
+    const result = await processData(input);
+
+    return new Response(JSON.stringify({ data: result }), {
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      status: 200,
+    });
+  } catch (error) {
+    console.error('Function error:', error);
+    return new Response(
+      JSON.stringify({ error: error.message || 'Internal server error' }),
+      {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        status: 500,
+      }
+    );
+  }
+});
+```
+
+## Local Development
+
+### Serving Functions Locally
+
+```bash
+# Start local Supabase (if not already running)
+supabase start
+
+# Serve all functions locally
+supabase functions serve
+
+# Serve a specific function
+supabase functions serve hello-world
+
+# Serve without JWT verification (for testing webhooks)
+supabase functions serve hello-world --no-verify-jwt
+```
+
+### Testing Locally
+
+1. **Start local Supabase:**
+   ```bash
+   supabase start
+   ```
+
+2. **Serve functions:**
+   ```bash
+   supabase functions serve
+   ```
+
+3. **Invoke function:**
+   ```bash
+   # Using curl
+   curl -i --location --request POST 'http://localhost:54321/functions/v1/hello-world' \
+     --header 'Authorization: Bearer YOUR_ANON_KEY' \
+     --header 'Content-Type: application/json' \
+     --data '{"name":"World"}'
+
+   # Or using Supabase client
+   const { data, error } = await supabase.functions.invoke('hello-world', {
+     body: { name: 'World' },
+   });
+   ```
+
+## Testing with Deno Test
+
+Create test files in `supabase/functions/tests/`:
+
+```typescript
+// supabase/functions/tests/hello-world-test.ts
+import { assertEquals, assert } from 'jsr:@std/assert@1';
+import { createClient, SupabaseClient } from 'npm:@supabase/supabase-js@2';
+import 'jsr:@std/dotenv/load';
+
+const supabaseUrl = Deno.env.get('SUPABASE_URL') ?? '';
+const supabaseKey = Deno.env.get('SUPABASE_ANON_KEY') ?? '';
+
+const options = {
+  auth: {
+    autoRefreshToken: false,
+    persistSession: false,
+    detectSessionInUrl: false,
+  },
+};
+
+Deno.test('Hello World Function Test', async () => {
+  const client: SupabaseClient = createClient(supabaseUrl, supabaseKey, options);
+
+  const { data, error } = await client.functions.invoke('hello-world', {
+    body: { name: 'World' },
+  });
+
+  if (error) {
+    throw new Error('Function invocation failed: ' + error.message);
+  }
+
+  assert(data, 'Data should be returned');
+  assertEquals(data.message, 'Hello World!');
+});
+```
+
+### Running Tests
+
+```bash
+# Run all tests
+deno test --allow-all supabase/functions/tests/
+
+# Run specific test
+deno test --allow-all supabase/functions/tests/hello-world-test.ts
+```
+
+## HTTP Methods
+
+Edge Functions support `GET`, `POST`, `PUT`, `PATCH`, `DELETE`, and `OPTIONS`. Handle different methods appropriately:
+
+```typescript
+import { corsHeaders } from '../_shared/cors.ts';
+
+Deno.serve(async (req: Request) => {
+  // Handle CORS preflight
+  if (req.method === 'OPTIONS') {
+    return new Response('ok', { headers: corsHeaders });
+  }
+
+  const url = new URL(req.url);
+  const path = url.pathname;
+
+  switch (req.method) {
+    case 'GET':
+      return handleGet(path);
+    case 'POST':
+      return handlePost(req);
+    case 'PUT':
+      return handlePut(req);
+    case 'PATCH':
+      return handlePatch(req);
+    case 'DELETE':
+      return handleDelete(path);
+    default:
+      return new Response(
+        JSON.stringify({ error: 'Method not allowed' }),
+        {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          status: 405,
+        }
+      );
+  }
+});
+```
+
+## Best Practices Summary
+
+### DO
+
+✅ **Always handle CORS** when functions are called from browsers
+✅ **Use shared `cors.ts`** for consistency across functions
+✅ **Handle OPTIONS requests** for CORS preflight
+✅ **Implement proper error handling** with try-catch and appropriate status codes
+✅ **Test functions locally** before deploying
+✅ **Use descriptive error messages** in responses
+✅ **Log errors** for debugging (console.error)
+
+### DON'T
+
+❌ **Don't skip CORS handling** - Functions called from browsers require it
+❌ **Don't expose sensitive errors** - Generic messages for production
+❌ **Don't forget OPTIONS handling** - Browsers send preflight requests
+❌ **Don't skip error handling** - Always handle potential failures
+❌ **Don't deploy untested functions** - Test locally first

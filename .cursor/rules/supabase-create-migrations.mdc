@@ -8,6 +8,21 @@ You are a Postgres Expert who loves creating secure database schemas.
 
 This project uses the migrations provided by the Supabase CLI.
 
+## Development Workflow
+
+This project uses an **iterative development workflow** for database changes. See `supabase-development-workflow.mdc` for the complete workflow guide.
+
+**Key points:**
+- During development, changes are made directly via Supabase MCP
+- Migration files are generated but **NOT applied** during development
+- All related changes are consolidated into ONE migration per feature
+- Migrations are only applied when ready to commit
+
+**When creating migrations:**
+- If working on a feature, consolidate all related changes into a single migration file
+- Do not create multiple migrations for iterations of the same feature
+- Reference the workflow guide for detailed patterns and examples
+
 ## Creating a migration file
 
 Given the context of the user's message, create a database migration file inside the folder `supabase/migrations/`.
@@ -47,3 +62,111 @@ Write Postgres-compatible SQL code for Supabase migration files that:
   - Include comments explaining the rationale and intended behavior of each security policy
 
 The generated SQL code should be production-ready, well-documented, and aligned with Supabase's best practices.
+
+## Migration Consolidation
+
+When working on a feature with multiple iterations:
+
+1. **Start with an initial migration file** - Generated from your first change
+2. **Update the same file** as you iterate - Add new changes to the existing migration
+3. **Consolidate logically** - Organize as: tables → columns → functions → triggers → policies
+4. **Remove redundant changes** - If you added a column, then modified it, show only the final state
+
+Example consolidation pattern:
+```sql
+-- Good: Shows final state after all iterations
+create table if not exists public.contacts (
+  id uuid default gen_random_uuid() primary key,
+  user_id uuid references auth.users(id) not null,
+  name text not null,
+  email text,
+  phone text,
+  created_at timestamp with time zone default now(),
+  updated_at timestamp with time zone default now()
+);
+
+-- Bad: Shows intermediate states
+create table if not exists public.contacts (id uuid, name text);
+alter table public.contacts add column email text;
+alter table public.contacts add column phone text;
+alter table public.contacts add column user_id uuid;
+```
+
+## Local Testing
+
+Before committing migrations, always test them locally:
+
+```bash
+# Reset local database to clean state
+supabase db reset
+
+# This applies all migrations from scratch, verifying:
+# - Migration syntax is correct
+# - Dependencies are in order
+# - RLS policies work as expected
+# - Triggers and functions execute properly
+```
+
+**Testing checklist:**
+- ✅ Migration applies cleanly from scratch
+- ✅ All tables, columns, and constraints are created correctly
+- ✅ RLS policies work for intended roles
+- ✅ Functions and triggers execute without errors
+- ✅ Foreign key relationships are valid
+- ✅ Indexes are created (if needed)
+
+## Rollback Strategies
+
+### During Development (Before Commit)
+
+If you need to discard changes:
+1. Delete the uncommitted migration file
+2. Reset your local database: `supabase db reset`
+3. Start fresh
+
+### After Commit (Production Rollback)
+
+If you need to rollback a committed migration:
+
+1. **Create a rollback migration** - Reverse the changes in a new migration file
+2. **Test the rollback** - Use `supabase db reset` to verify
+3. **Apply rollback** - Deploy the rollback migration
+
+Example rollback:
+```sql
+-- Migration: rollback_create_contacts_feature
+-- Purpose: Remove contacts feature
+
+-- Drop in reverse order of creation
+drop trigger if exists update_contacts_updated_at on public.contacts;
+drop function if exists public.handle_updated_at();
+drop policy if exists "Users can delete own contacts" on public.contacts;
+drop policy if exists "Users can update own contacts" on public.contacts;
+drop policy if exists "Users can insert own contacts" on public.contacts;
+drop policy if exists "Users can view own contacts" on public.contacts;
+drop table if exists public.contacts;
+```
+
+**Important notes:**
+- Always create rollback migrations - Never delete existing migration files
+- Test rollbacks thoroughly before applying to production
+- Consider data migration if rolling back affects existing data
+- Document why a rollback is necessary
+
+## Migration Best Practices
+
+### DO
+
+✅ **Consolidate related changes** - One migration per feature
+✅ **Test before committing** - Always use `supabase db reset`
+✅ **Use descriptive names** - `create_contacts_feature.sql` not `migration.sql`
+✅ **Include comprehensive comments** - Explain the "why", not just the "what"
+✅ **Organize logically** - Tables → Columns → Functions → Triggers → Policies
+
+### DON'T
+
+❌ **Don't create multiple migrations for iterations** - Consolidate into one
+❌ **Don't skip testing** - Always test with `supabase db reset`
+❌ **Don't mix unrelated features** - Keep migrations focused
+❌ **Don't delete committed migrations** - Create rollback migrations instead
+❌ **Don't commit untested migrations** - Verify they work first
