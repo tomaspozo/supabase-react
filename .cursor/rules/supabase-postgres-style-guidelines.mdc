@@ -212,6 +212,34 @@ comment on table public.order_items is 'Items within an order. Each order-produc
 - **Avoid composite keys** unless you have a clear business requirement
 - **Always add indexes** on foreign key columns for performance
 
+## Types
+
+PostgreSQL does not support `CREATE TYPE IF NOT EXISTS`. Use DO blocks with existence checks:
+
+```sql
+do $$
+begin
+  if not exists (select 1 from pg_type where typname = 'contact_type' and typnamespace = (select oid from pg_namespace where nspname = 'public')) then
+    create type public.contact_type as enum ('person', 'company');
+  end if;
+end $$;
+```
+
+## Constraints
+
+### Constraint Naming Best Practices
+
+**Always name constraints explicitly** in CREATE TABLE statements to match existing database constraints:
+
+```sql
+-- Good: Explicitly named constraint
+constraint contact_data_contact_field_unique unique (contact_id, field_definition_id)
+
+-- Avoid: Auto-generated name may differ from database
+unique (contact_id, field_definition_id)
+```
+
+This prevents migration diffs from attempting to drop/recreate constraints with different names.
 
 ## Queries
 
