@@ -2,7 +2,7 @@ import { CurrentUserAvatar } from '@/components/auth/current-user-avatar'
 import { OtpAuth } from '@/components/auth/otp-auth'
 import { Dropzone } from '@/components/storage/dropzone'
 import { Chat } from '@/components/realtime/chat'
-import { useSupabase } from '@/lib/use-supabase'
+import { useSupabase } from '@/hooks/use-supabase'
 import { Sparkles, Upload, MessageSquare, Shield } from 'lucide-react'
 
 export function Hero() {

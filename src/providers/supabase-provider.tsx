@@ -1,6 +1,6 @@
 import { createContext, useEffect, useState } from 'react'
 import type { User, Session } from '@supabase/supabase-js'
-import { supabase } from './supabase'
+import { supabase } from '@/lib/supabase/client'
 
 type SupabaseContextType = {
   user: User | null
@@ -49,5 +49,4 @@ export function SupabaseProvider({ children }: { children: React.ReactNode }) {
     </SupabaseContext.Provider>
   )
 }
-
 

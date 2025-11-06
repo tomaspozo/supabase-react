@@ -1,4 +1,4 @@
-import { useSupabase } from '@/lib/use-supabase'
+import { useSupabase } from '@/hooks/use-supabase'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import {
   DropdownMenu,
