@@ -19,8 +19,9 @@ import {
   DropzoneContent,
   DropzoneEmptyState,
 } from '@/components/dropzone'
+import { ModeToggle } from '@/components/mode-toggle'
 
-export function Hero() {
+export function Showcase() {
   const { user } = useSupabase()
 
   const uploadProps = useSupabaseUpload({
@@ -39,10 +40,11 @@ export function Hero() {
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
               <Sparkles className="h-6 w-6 text-primary" />
-              <h1 className="text-xl font-bold">Supabase Showcase</h1>
+              <h1 className="text-xl font-bold">Supabase + React</h1>
             </div>
             <div className="flex items-center gap-4">
               {user && <CurrentUserAvatar />}
+              <ModeToggle />
             </div>
           </div>
         </div>
@@ -52,11 +54,12 @@ export function Hero() {
       <section className="container mx-auto px-4 py-8 md:py-16">
         <div className="text-center mb-8 md:mb-12">
           <h2 className="text-3xl md:text-4xl font-bold tracking-tight mb-4">
-            Supabase Features Showcase
+            Supabase + React
           </h2>
           <p className="text-lg md:text-xl text-muted-foreground max-w-2xl mx-auto">
-            Explore Supabase's powerful features: Authentication, Storage, and
-            Realtime
+            Starter template for building with React and Supabase.
+            <br />
+            Includes: Auth, Storage, and Realtime.
           </p>
         </div>
 
