@@ -1,4 +1,4 @@
-# React + Shadcn UI + Supabase Starter
+# React + Supabase Starter
 
 A modern, production-ready starter template optimized for building full-stack applications with React, Shadcn UI, and Supabase. This template is specifically configured for an enhanced development experience with Cursor AI.
 
@@ -13,23 +13,11 @@ A modern, production-ready starter template optimized for building full-stack ap
 
 ## 🚀 Supabase Features Showcase
 
-This template showcases three key Supabase features:
+This template provides three key Supabase features to start:
 
-### 🔐 Authentication (OTP)
-- Email-based OTP authentication
-- User avatar display when authenticated
-- Secure session management
-
-### 📁 File Upload
-- Drag-and-drop file upload interface
-- Real-time upload progress
-- Supabase Storage integration
-- Public file URLs
-
-### 💬 Realtime Chat
-- Real-time messaging using Supabase Realtime
-- Broadcast pattern for message delivery
-- User identification and message timestamps
+- 🔐 Authentication and Profile managenent
+- 📁 File Uploads
+- 💬 Realtime Chat
 
 ## 🚀 Tech Stack
 
@@ -54,27 +42,45 @@ This template showcases three key Supabase features:
    - Add your Supabase URL and anon key:
      ```env
      VITE_SUPABASE_URL=your-project-url
-     VITE_SUPABASE_ANON_KEY=your-anon-key
+     VITE_SUPABASE_PUBLISHABLE_OR_ANON_KEY=your-publishable-key-or-anon-key
      ```
-5. Start the development server:
+5. Start Supabase locally:
+   ```bash
+   npx supabase start
+   ```
+6. Start the development server:
    ```bash
    npm run dev
    ```
-
-## 🔧 Supabase Setup
-
-### Storage Bucket
-Create a storage bucket for file uploads:
-1. Go to Storage in your Supabase dashboard
-2. Create a new bucket named `uploads`
-3. Set bucket to public (or configure RLS policies as needed)
-
-### Realtime
-Realtime is enabled by default for broadcast channels. No additional setup required.
 
 ## 🤖 Cursor AI 
 
 This template is optimized for use with Cursor, featuring:
 - Pre-configured cursor rules
-- Tested and ready for local development with Supabase Local MCP
+- Ready for local development with Supabase Local MCP
+
+## 🛠️ Build On Top
+
+- When you're ready to start building your own features:
+  - Remove the sample migration file: `20251107150000_showcase_create_bucket.sql`
+  - Delete the demo component: `src/components/showcase.tsx`
+  - (Optional) Clean your local database by restarting Supabase with:
+    ```bash
+    npx supabase db reset
+    ```
+- 🚀 You're now set to begin developing and customizing your application!
+
+
+---
+
+## 📝 License
+
+This project is licensed under the MIT License.
+
+---
+
+### 🙌 Stay Connected
+
+Follow me on [X (@tomaspozo_)](https://x.com/tomaspozo_) for updates and more!
+
 
