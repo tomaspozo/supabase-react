@@ -20,6 +20,7 @@ import {
   DropzoneEmptyState,
 } from '@/components/dropzone'
 import { ModeToggle } from '@/components/mode-toggle'
+import { ProfileForm } from '@/components/profile/profile-form'
 
 export function Showcase() {
   const { user } = useSupabase()
@@ -114,20 +115,7 @@ export function Showcase() {
                       </div>
                     </div>
                   ) : (
-                    <div className="text-center space-y-4">
-                      <div className="p-6 border rounded-lg bg-green-50 dark:bg-green-950/20 border-green-200 dark:border-green-800">
-                        <p className="text-green-700 dark:text-green-400 font-medium text-lg">
-                          ✓ Successfully authenticated
-                        </p>
-                        <p className="text-sm text-green-600 dark:text-green-500 mt-2">
-                          {user.email}
-                        </p>
-                      </div>
-                      <p className="text-sm text-muted-foreground">
-                        You can now access File Upload and Realtime Chat
-                        features
-                      </p>
-                    </div>
+                    <ProfileForm />
                   )}
                 </CardContent>
               </Card>
@@ -191,7 +179,7 @@ export function Showcase() {
                     <div className="flex-1 border rounded-lg overflow-hidden">
                       <RealtimeChat
                         roomName="showcase"
-                        username={user.email || user.id.slice(0, 8)}
+                        username={user.email?.split('@')[0] || user.id.slice(0, 8)}
                       />
                     </div>
                   )}

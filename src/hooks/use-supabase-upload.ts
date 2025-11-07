@@ -182,6 +182,7 @@ const useSupabaseUpload = (options: UseSupabaseUploadOptions) => {
     files,
     setFiles,
     successes,
+    setSuccesses,
     isSuccess,
     loading,
     errors,
